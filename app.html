@@ -10,53 +10,59 @@
 <script>
 (async()=>{
   const ORIGINAL='https://raw.githubusercontent.com/alexis-alzate/tipificaciones-soporte/a1ec6c34d17f84a6e51fae4dec4221ec82f6172d/index.html';
-  try{
+  try {
     let html=await fetch(ORIGINAL,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('No se pudo cargar la base');return r.text()});
     const css=`<style>
-      .coord-btn,.new-tip-btn{flex-shrink:0;padding:9px 13px;border-radius:9px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer}
+      .coord-btn,.new-tip-btn{flex-shrink:0;padding:9px 13px;border-radius:9px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:.15s}
       .coord-btn{border:1px solid var(--border2);background:var(--surface2);color:var(--muted)}
+      .coord-btn:hover{border-color:var(--accent);color:var(--text)}
       .new-tip-btn{border:1px solid rgba(34,208,122,.4);background:rgba(34,208,122,.12);color:#79edaf;display:none}
+      .new-tip-btn:hover{background:rgba(34,208,122,.2)}
       .admin-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:12000;align-items:center;justify-content:center;padding:16px}.admin-overlay.show{display:flex}
       .admin-modal{width:500px;max-width:94vw;background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:26px;box-shadow:0 24px 60px rgba(0,0,0,.65)}
       .admin-modal h3{font-size:17px;margin:0 0 6px}.admin-modal p{font-size:13px;color:var(--muted);margin:0 0 18px;line-height:1.5}
-      .admin-label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}.admin-field{width:100%;box-sizing:border-box;background:var(--bg);border:1.5px solid var(--border2);border-radius:8px;color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;padding:10px 12px;outline:none}
-      .admin-preview{margin-top:14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted)}
+      .admin-label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
+      .admin-field{width:100%;box-sizing:border-box;background:var(--bg);border:1.5px solid var(--border2);border-radius:8px;color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;padding:10px 12px;outline:none}.admin-field:focus{border-color:var(--accent)}
+      .admin-preview{margin-top:14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);word-break:break-word}
       .admin-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}.admin-action{padding:9px 18px;border-radius:8px;border:0;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer}.admin-cancel{background:var(--border2);color:var(--muted)}.admin-primary{background:var(--accent);color:white}.admin-save{background:var(--green);color:#07140d}.admin-error{min-height:18px;color:#ff7c93;font-size:12px;margin-top:10px}
       @media(max-width:820px){header{flex-wrap:wrap}.coord-btn,.new-tip-btn{order:4}}
     </style>`;
-    const lib='<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4"><\\/script>';
     const js=`<script>
-    (async()=>{
+    (()=>{
       const SUPABASE_URL='https://ocnoiraaqosfmbluccba.supabase.co';
       const SUPABASE_KEY='sb_publishable_0l5G3JLG4dXy91KUmMPPAg_cKgxVlvt';
       const COORDINATOR_EMAIL='jarias.playtechla@gmail.com';
-      const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,detectSessionInUrl:true}});
+      const FUNCTION_URL=SUPABASE_URL+'/functions/v1/playtech-add-tipificacion';
+      const TABLE_URL=SUPABASE_URL+'/rest/v1/playtech_tipificaciones?select=id,category_id,text,is_template,created_at&order=created_at.asc';
       const norm=s=>(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim();
+      let coordinatorPassword='';let coordinatorActive=false;
       const header=document.querySelector('header');if(!header)return;
-      const coordBtn=document.createElement('button');coordBtn.className='coord-btn';coordBtn.type='button';
-      const newBtn=document.createElement('button');newBtn.className='new-tip-btn';newBtn.type='button';newBtn.textContent='＋ Nueva tipificación';
-      const count=document.getElementById('result-count');header.insertBefore(coordBtn,count||null);header.insertBefore(newBtn,count||null);
-
-      const login=document.createElement('div');login.className='admin-overlay';login.innerHTML='<div class="admin-modal"><h3>🔐 Acceso coordinador</h3><p>El enlace de acceso se enviará únicamente al correo autorizado.</p><label class="admin-label">Correo autorizado</label><input class="admin-field" value="'+COORDINATOR_EMAIL+'" readonly><div class="admin-error" id="login-error"></div><div class="admin-actions"><button class="admin-action admin-cancel" id="login-cancel">Cancelar</button><button class="admin-action admin-primary" id="login-send">Enviar enlace de acceso</button></div></div>';document.body.appendChild(login);
-      const add=document.createElement('div');add.className='admin-overlay';add.innerHTML='<div class="admin-modal"><h3>➕ Nueva tipificación</h3><p>Se guardará para todo el equipo.</p><label class="admin-label">Categoría</label><select class="admin-field" id="shared-category"></select><label class="admin-label">Tipificación / ruta</label><input class="admin-field" id="shared-left" placeholder="Ej: Configuraciones-usuarios-administrar usuarios"><label class="admin-label">Descripción</label><input class="admin-field" id="shared-right" placeholder="Ej: Se cambia correo del usuario"><div class="admin-preview" id="shared-preview">La vista previa aparecerá aquí.</div><div class="admin-error" id="shared-error"></div><div class="admin-actions"><button class="admin-action admin-cancel" id="shared-cancel">Cancelar</button><button class="admin-action admin-save" id="shared-save">Guardar para todos</button></div></div>';document.body.appendChild(add);
-
-      let coordinator=false;
-      async function refreshAuth(){const {data}=await client.auth.getSession();const email=(data.session?.user?.email||'').toLowerCase();coordinator=email===COORDINATOR_EMAIL;newBtn.style.display=coordinator?'inline-block':'none';coordBtn.textContent=coordinator?'🔓 Coordinador':'🔐 Coordinador'}
-      coordBtn.addEventListener('click',async()=>{if(coordinator){await client.auth.signOut();await refreshAuth();toast('Sesión de coordinador cerrada');return}document.getElementById('login-error').textContent='';login.classList.add('show')});
-      document.getElementById('login-cancel').onclick=()=>login.classList.remove('show');
-      document.getElementById('login-send').onclick=async()=>{const err=document.getElementById('login-error');err.textContent='Enviando…';const {error}=await client.auth.signInWithOtp({email:COORDINATOR_EMAIL,options:{shouldCreateUser:true,emailRedirectTo:location.origin+'/app.html'}});err.textContent=error?error.message:'Revisa el correo del coordinador y abre el enlace de acceso.'};
-
-      const cat=document.getElementById('shared-category'),left=document.getElementById('shared-left'),right=document.getElementById('shared-right'),preview=document.getElementById('shared-preview'),sharedErr=document.getElementById('shared-error');
-      const updatePreview=()=>{const l=left.value.trim(),r=right.value.trim();preview.textContent=(l||r)?((l||'Tipificación')+'='+(r||'Descripción')):'La vista previa aparecerá aquí.'};left.oninput=updatePreview;right.oninput=updatePreview;
-      newBtn.onclick=()=>{if(!coordinator)return;cat.innerHTML=CATEGORIES.map(c=>'<option value="'+c.id+'">'+c.label+'</option>').join('');if(activeCategory!=='all'&&CATEGORIES.some(c=>c.id===activeCategory))cat.value=activeCategory;left.value='';right.value='';sharedErr.textContent='';updatePreview();add.classList.add('show')};document.getElementById('shared-cancel').onclick=()=>add.classList.remove('show');
-      document.getElementById('shared-save').onclick=async()=>{const c=CATEGORIES.find(x=>x.id===cat.value),l=left.value.trim(),r=right.value.trim();if(!c||!l||!r){sharedErr.textContent='Completa todos los campos.';return}const text=l+'='+r;if(c.items.some(i=>norm(i.text)===norm(text))){sharedErr.textContent='Esa tipificación ya existe.';return}const {error}=await client.from('playtech_tipificaciones').insert({category_id:c.id,text,is_template:text.includes('LIST-XXXX'),created_by_email:COORDINATOR_EMAIL});if(error){sharedErr.textContent=error.message;return}add.classList.remove('show');await loadShared();activeCategory=c.id;searchQuery='';document.getElementById('search').value='';render();toast('Tipificación compartida guardada ✓')};
-
-      async function loadShared(){const {data,error}=await client.from('playtech_tipificaciones').select('id,category_id,text,is_template').order('created_at',{ascending:true});if(error){console.warn(error);return}let changed=false;(data||[]).forEach(row=>{const c=CATEGORIES.find(x=>x.id===row.category_id);if(c&&!c.items.some(i=>norm(i.text)===norm(row.text))){c.items.push({text:row.text,isTemplate:!!row.is_template});changed=true}});if(changed)render()}
-      await refreshAuth();await loadShared();client.auth.onAuthStateChange(()=>refreshAuth());client.channel('playtech-tipificaciones').on('postgres_changes',{event:'INSERT',schema:'public',table:'playtech_tipificaciones'},()=>loadShared()).subscribe();
+      const coordBtn=document.createElement('button');coordBtn.type='button';coordBtn.className='coord-btn';coordBtn.textContent='🔐 Coordinador';
+      const newBtn=document.createElement('button');newBtn.type='button';newBtn.className='new-tip-btn';newBtn.textContent='＋ Nueva tipificación';
+      const resultCount=document.getElementById('result-count');header.insertBefore(coordBtn,resultCount||null);header.insertBefore(newBtn,resultCount||null);
+      const login=document.createElement('div');login.className='admin-overlay';login.innerHTML='<div class="admin-modal"><h3>🔐 Acceso coordinador</h3><p>Solo el coordinador autorizado puede agregar tipificaciones para todo el equipo.</p><label class="admin-label">Correo</label><input class="admin-field" value="'+COORDINATOR_EMAIL+'" readonly><label class="admin-label">Clave de coordinador</label><input id="coord-password" class="admin-field" type="password" autocomplete="current-password" placeholder="Ingresa la clave"><div id="coord-error" class="admin-error"></div><div class="admin-actions"><button id="coord-cancel" type="button" class="admin-action admin-cancel">Cancelar</button><button id="coord-login" type="button" class="admin-action admin-primary">Entrar</button></div></div>';document.body.appendChild(login);
+      const add=document.createElement('div');add.className='admin-overlay';add.innerHTML='<div class="admin-modal"><h3>➕ Nueva tipificación</h3><p>Lo que guardes aquí aparecerá para todo el equipo.</p><label class="admin-label">Categoría</label><select id="shared-category" class="admin-field"></select><label class="admin-label">Tipificación / ruta</label><input id="shared-left" class="admin-field" placeholder="Ej: Configuraciones-usuarios-administrar usuarios"><label class="admin-label">Descripción</label><input id="shared-right" class="admin-field" placeholder="Ej: Se cambia correo del usuario"><div id="shared-preview" class="admin-preview">La vista previa aparecerá aquí.</div><div id="shared-error" class="admin-error"></div><div class="admin-actions"><button id="shared-cancel" type="button" class="admin-action admin-cancel">Cancelar</button><button id="shared-save" type="button" class="admin-action admin-save">Guardar para todos</button></div></div>';document.body.appendChild(add);
+      async function api(payload){const res=await fetch(FUNCTION_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify(payload)});let data={};try{data=await res.json()}catch{}if(!res.ok)throw new Error(data.error||'No se pudo completar la operación');return data}
+      function setCoordinator(active){coordinatorActive=active;coordBtn.textContent=active?'🔓 Coordinador':'🔐 Coordinador';newBtn.style.display=active?'inline-block':'none';if(!active)coordinatorPassword=''}
+      coordBtn.onclick=()=>{if(coordinatorActive){setCoordinator(false);toast('Sesión de coordinador cerrada');return}document.getElementById('coord-password').value='';document.getElementById('coord-error').textContent='';login.classList.add('show');setTimeout(()=>document.getElementById('coord-password').focus(),50)};
+      document.getElementById('coord-cancel').onclick=()=>login.classList.remove('show');
+      document.getElementById('coord-login').onclick=async()=>{const password=document.getElementById('coord-password').value,error=document.getElementById('coord-error');if(!password){error.textContent='Escribe la clave de coordinador.';return}error.textContent='Validando…';try{await api({action:'verify',email:COORDINATOR_EMAIL,password});coordinatorPassword=password;setCoordinator(true);login.classList.remove('show');toast('Acceso de coordinador habilitado ✓')}catch(e){error.textContent=e.message}};
+      document.getElementById('coord-password').onkeydown=e=>{if(e.key==='Enter')document.getElementById('coord-login').click();if(e.key==='Escape')login.classList.remove('show')};
+      const cat=document.getElementById('shared-category'),left=document.getElementById('shared-left'),right=document.getElementById('shared-right'),preview=document.getElementById('shared-preview'),sharedError=document.getElementById('shared-error');
+      function updatePreview(){const l=left.value.trim(),r=right.value.trim();preview.textContent=(l||r)?((l||'Tipificación')+'='+(r||'Descripción')):'La vista previa aparecerá aquí.'}left.oninput=updatePreview;right.oninput=updatePreview;
+      newBtn.onclick=()=>{if(!coordinatorActive)return;cat.innerHTML=CATEGORIES.map(c=>'<option value="'+c.id+'">'+c.label+'</option>').join('');if(activeCategory!=='all'&&CATEGORIES.some(c=>c.id===activeCategory))cat.value=activeCategory;left.value='';right.value='';sharedError.textContent='';updatePreview();add.classList.add('show');setTimeout(()=>left.focus(),50)};
+      document.getElementById('shared-cancel').onclick=()=>add.classList.remove('show');
+      document.getElementById('shared-save').onclick=async()=>{const category=CATEGORIES.find(c=>c.id===cat.value),l=left.value.trim(),r=right.value.trim();if(!category||!l||!r){sharedError.textContent='Completa todos los campos.';return}const text=l+'='+r;if(category.items.some(i=>norm(i.text)===norm(text))){sharedError.textContent='Esa tipificación ya existe.';return}sharedError.textContent='Guardando…';try{await api({action:'insert',email:COORDINATOR_EMAIL,password:coordinatorPassword,category_id:category.id,text,is_template:text.includes('LIST-XXXX')});add.classList.remove('show');await loadShared();activeCategory=category.id;searchQuery='';document.getElementById('search').value='';render();toast('Tipificación guardada para todos ✓')}catch(e){sharedError.textContent=e.message}};
+      async function loadShared(){try{const res=await fetch(TABLE_URL,{headers:{'apikey':SUPABASE_KEY}});if(!res.ok)throw new Error('No se pudieron cargar las compartidas');const rows=await res.json();let changed=false;for(const row of rows){const category=CATEGORIES.find(c=>c.id===row.category_id);if(category&&!category.items.some(i=>norm(i.text)===norm(row.text))){category.items.push({text:row.text,isTemplate:!!row.is_template});changed=true}}if(changed)render()}catch(e){console.warn('Tipificaciones compartidas:',e)}}
+      login.onclick=e=>{if(e.target===login)login.classList.remove('show')};add.onclick=e=>{if(e.target===add)add.classList.remove('show')};loadShared();setInterval(loadShared,30000);
     })();
-    <\\/script>`;
-    html=html.replace('</head>',css+lib+'</head>').replace('</body>',js+'</body>');document.open();document.write(html);document.close();
-  }catch(e){document.body.innerHTML='<div style="padding:24px">No se pudo cargar la herramienta. Recarga la página.</div>';console.error(e)}
+    <\/script>`;
+    html=html.replace('</head>',css+'</head>').replace('</body>',js+'</body>');
+    document.open();document.write(html);document.close();
+  } catch(e) {
+    console.error(e);
+    document.body.innerHTML='<div style="padding:24px">No se pudo cargar la herramienta. Recarga la página.</div>';
+  }
 })();
 </script>
 </body>
