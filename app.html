@@ -4,92 +4,69 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tipificaciones · Soporte</title>
-<style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0d12}#tipificaciones-app{border:0;width:100%;height:100%;display:block}
-</style>
 </head>
-<body>
-<iframe id="tipificaciones-app" src="/index.html?embedded=1" title="Tipificaciones Soporte"></iframe>
+<body style="margin:0;background:#0b0d12;color:#e2e8f8;font-family:Arial,sans-serif">
+<div id="loading" style="padding:24px">Cargando tipificaciones…</div>
 <script>
-const frame=document.getElementById('tipificaciones-app');
-frame.addEventListener('load',()=>{
-  const doc=frame.contentDocument;
-  if(!doc||doc.getElementById('btn-add-custom-tip')) return;
-
-  const css=doc.createElement('style');
-  css.textContent=`
-    .btn-add-custom-tip{flex-shrink:0;display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border:1px solid rgba(34,208,122,.35);border-radius:9px;background:rgba(34,208,122,.12);color:#7ff0b4;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
-    .btn-add-custom-tip:hover{background:rgba(34,208,122,.2);border-color:rgba(34,208,122,.55);transform:translateY(-1px)}
-    #add-tip-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:1000;align-items:center;justify-content:center}
-    #add-tip-overlay.show{display:flex}
-    #add-tip-modal{width:520px;max-width:92vw;background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:26px;box-shadow:0 24px 60px rgba(0,0,0,.65)}
-    #add-tip-modal h3{font-size:17px;margin:0 0 6px}#add-tip-modal p{font-size:13px;color:var(--muted);margin:0 0 18px}
-    .add-tip-label{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
-    .add-tip-field{width:100%;box-sizing:border-box;background:var(--bg);border:1.5px solid var(--border2);border-radius:8px;color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;padding:10px 12px;outline:none}
-    .add-tip-field:focus{border-color:var(--green)}
-    .add-tip-preview{margin-top:14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);word-break:break-word}
-    .add-tip-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
-    .add-tip-btn{padding:9px 18px;border-radius:8px;border:0;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer}
-    .add-tip-cancel{background:var(--border2);color:var(--muted)}.add-tip-save{background:var(--green);color:#07140d}
-    @media(max-width:760px){header{flex-wrap:wrap}.btn-add-custom-tip{order:4;width:100%;justify-content:center}}
-  `;
-  doc.head.appendChild(css);
-
-  const btn=doc.createElement('button');
-  btn.id='btn-add-custom-tip';
-  btn.type='button';
-  btn.className='btn-add-custom-tip';
-  btn.textContent='＋ Nueva tipificación';
-  const header=doc.querySelector('header');
-  const count=doc.getElementById('result-count');
-  header.insertBefore(btn,count||null);
-
-  const overlay=doc.createElement('div');
-  overlay.id='add-tip-overlay';
-  overlay.innerHTML=`<div id="add-tip-modal">
-    <h3>➕ Nueva tipificación</h3>
-    <p>Agrega una nueva opción sin editar el código. Quedará guardada en este navegador.</p>
-    <label class="add-tip-label" for="add-tip-category">Categoría</label>
-    <select id="add-tip-category" class="add-tip-field"></select>
-    <label class="add-tip-label" for="add-tip-left">Tipificación / ruta</label>
-    <input id="add-tip-left" class="add-tip-field" type="text" placeholder="Ej: Configuraciones-usuarios-administrar usuarios">
-    <label class="add-tip-label" for="add-tip-right">Descripción</label>
-    <input id="add-tip-right" class="add-tip-field" type="text" placeholder="Ej: Se cambia correo del usuario">
-    <div id="add-tip-preview" class="add-tip-preview">La vista previa aparecerá aquí.</div>
-    <div class="add-tip-actions"><button type="button" class="add-tip-btn add-tip-cancel" id="add-tip-cancel">Cancelar</button><button type="button" class="add-tip-btn add-tip-save" id="add-tip-save">Guardar tipificación</button></div>
-  </div>`;
-  doc.body.appendChild(overlay);
-
-  const injected=doc.createElement('script');
-  injected.textContent=`
-    (()=>{
-      const STORAGE_KEY='tipificaciones_soporte_custom_v1';
-      const getSaved=()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')}catch{return[]}};
-      const saveAll=(rows)=>localStorage.setItem(STORAGE_KEY,JSON.stringify(rows));
-      const norm=(s)=>(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim();
-      const overlay=document.getElementById('add-tip-overlay');
-      const catSelect=document.getElementById('add-tip-category');
-      const left=document.getElementById('add-tip-left');
-      const right=document.getElementById('add-tip-right');
-      const preview=document.getElementById('add-tip-preview');
-      const refreshPreview=()=>{const l=left.value.trim(),r=right.value.trim();preview.textContent=(l||r)?((l||'Tipificación')+'='+(r||'Descripción')):'La vista previa aparecerá aquí.'};
-      const populate=()=>{catSelect.innerHTML=CATEGORIES.map(c=>'<option value="'+c.id+'">'+c.label+'</option>').join('');if(typeof activeCategory!=='undefined'&&activeCategory!=='all'&&CATEGORIES.some(c=>c.id===activeCategory))catSelect.value=activeCategory};
-      const load=()=>{getSaved().forEach(row=>{const c=CATEGORIES.find(x=>x.id===row.categoryId);if(c&&!c.items.some(i=>norm(i.text)===norm(row.text)))c.items.push({text:row.text,isTemplate:!!row.isTemplate})});render()};
-      window.openAddTip=()=>{populate();left.value='';right.value='';refreshPreview();overlay.classList.add('show');setTimeout(()=>left.focus(),50)};
-      window.closeAddTip=()=>overlay.classList.remove('show');
-      window.saveAddTip=()=>{const categoryId=catSelect.value,l=left.value.trim(),r=right.value.trim(),c=CATEGORIES.find(x=>x.id===categoryId);if(!c){toast('Selecciona una categoría válida.');return}if(!l||!r){toast('Completa la tipificación y la descripción.');(!l?left:right).focus();return}const text=l+'='+r;if(c.items.some(i=>norm(i.text)===norm(text))){toast('Esa tipificación ya existe.');return}const rows=getSaved();rows.push({id:'custom_'+Date.now(),categoryId,text,isTemplate:text.includes('LIST-XXXX'),createdAt:new Date().toISOString()});try{saveAll(rows)}catch(e){console.error(e);toast('No se pudo guardar en este navegador.');return}c.items.push({text,isTemplate:text.includes('LIST-XXXX')});activeCategory=categoryId;searchQuery='';document.getElementById('search').value='';closeAddTip();render();toast('Tipificación guardada ✓')};
-      document.getElementById('btn-add-custom-tip').addEventListener('click',openAddTip);
-      document.getElementById('add-tip-cancel').addEventListener('click',closeAddTip);
-      document.getElementById('add-tip-save').addEventListener('click',saveAddTip);
-      left.addEventListener('input',refreshPreview);right.addEventListener('input',refreshPreview);
-      right.addEventListener('keydown',e=>{if(e.key==='Enter')saveAddTip();if(e.key==='Escape')closeAddTip()});
-      left.addEventListener('keydown',e=>{if(e.key==='Escape')closeAddTip()});
-      overlay.addEventListener('click',e=>{if(e.target===overlay)closeAddTip()});
-      load();
-    })();
-  `;
-  doc.body.appendChild(injected);
-});
+(async()=>{
+  const ORIGINAL='https://raw.githubusercontent.com/alexis-alzate/tipificaciones-soporte/a1ec6c34d17f84a6e51fae4dec4221ec82f6172d/index.html';
+  try{
+    let html=await fetch(ORIGINAL,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('No se pudo cargar la base');return r.text()});
+    const css=`<style>
+      .btn-add-custom-tip{flex-shrink:0;display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border:1px solid rgba(34,208,122,.35);border-radius:9px;background:rgba(34,208,122,.12);color:#7ff0b4;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+      .btn-add-custom-tip:hover{background:rgba(34,208,122,.2);border-color:rgba(34,208,122,.55);transform:translateY(-1px)}
+      #add-tip-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:10000;align-items:center;justify-content:center}
+      #add-tip-overlay.show{display:flex}
+      #add-tip-modal{width:520px;max-width:92vw;background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:26px;box-shadow:0 24px 60px rgba(0,0,0,.65)}
+      #add-tip-modal h3{font-size:17px;margin:0 0 6px}#add-tip-modal p{font-size:13px;color:var(--muted);margin:0 0 18px}
+      .add-tip-label{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
+      .add-tip-field{width:100%;box-sizing:border-box;background:var(--bg);border:1.5px solid var(--border2);border-radius:8px;color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;padding:10px 12px;outline:none}
+      .add-tip-field:focus{border-color:var(--green)}
+      .add-tip-preview{margin-top:14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);word-break:break-word}
+      .add-tip-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+      .add-tip-btn{padding:9px 18px;border-radius:8px;border:0;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer}
+      .add-tip-cancel{background:var(--border2);color:var(--muted)}.add-tip-save{background:var(--green);color:#07140d}
+      @media(max-width:760px){header{flex-wrap:wrap}.btn-add-custom-tip{order:4;width:100%;justify-content:center}}
+    </style>`;
+    const js=`<script>
+      (()=>{
+        const STORAGE_KEY='tipificaciones_soporte_custom_v2';
+        const norm=s=>(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim();
+        const getSaved=()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')}catch{return[]}};
+        const persist=rows=>localStorage.setItem(STORAGE_KEY,JSON.stringify(rows));
+        const header=document.querySelector('header');
+        if(!header||document.getElementById('btn-add-custom-tip'))return;
+        const btn=document.createElement('button');
+        btn.id='btn-add-custom-tip';btn.type='button';btn.className='btn-add-custom-tip';btn.textContent='＋ Nueva tipificación';
+        const count=document.getElementById('result-count');header.insertBefore(btn,count||null);
+        const overlay=document.createElement('div');overlay.id='add-tip-overlay';
+        overlay.innerHTML='<div id="add-tip-modal"><h3>➕ Nueva tipificación</h3><p>Agrega una nueva opción sin editar el código.</p><label class="add-tip-label">Categoría</label><select id="add-tip-category" class="add-tip-field"></select><label class="add-tip-label">Tipificación / ruta</label><input id="add-tip-left" class="add-tip-field" type="text" placeholder="Ej: Configuraciones-usuarios-administrar usuarios"><label class="add-tip-label">Descripción</label><input id="add-tip-right" class="add-tip-field" type="text" placeholder="Ej: Se cambia correo del usuario"><div id="add-tip-preview" class="add-tip-preview">La vista previa aparecerá aquí.</div><div class="add-tip-actions"><button type="button" class="add-tip-btn add-tip-cancel" id="add-tip-cancel">Cancelar</button><button type="button" class="add-tip-btn add-tip-save" id="add-tip-save">Guardar tipificación</button></div></div>';
+        document.body.appendChild(overlay);
+        const cat=document.getElementById('add-tip-category'),left=document.getElementById('add-tip-left'),right=document.getElementById('add-tip-right'),preview=document.getElementById('add-tip-preview');
+        const fillCats=()=>{cat.innerHTML=CATEGORIES.map(c=>'<option value="'+c.id+'">'+c.label+'</option>').join('');if(typeof activeCategory!=='undefined'&&activeCategory!=='all'&&CATEGORIES.some(c=>c.id===activeCategory))cat.value=activeCategory};
+        const updatePreview=()=>{const l=left.value.trim(),r=right.value.trim();preview.textContent=(l||r)?((l||'Tipificación')+'='+(r||'Descripción')):'La vista previa aparecerá aquí.'};
+        const close=()=>overlay.classList.remove('show');
+        btn.addEventListener('click',()=>{fillCats();left.value='';right.value='';updatePreview();overlay.classList.add('show');setTimeout(()=>left.focus(),50)});
+        document.getElementById('add-tip-cancel').addEventListener('click',close);
+        overlay.addEventListener('click',e=>{if(e.target===overlay)close()});
+        left.addEventListener('input',updatePreview);right.addEventListener('input',updatePreview);
+        document.getElementById('add-tip-save').addEventListener('click',()=>{
+          const c=CATEGORIES.find(x=>x.id===cat.value),l=left.value.trim(),r=right.value.trim();
+          if(!c){toast('Selecciona una categoría válida.');return}
+          if(!l||!r){toast('Completa la tipificación y la descripción.');(!l?left:right).focus();return}
+          const text=l+'='+r;if(c.items.some(i=>norm(i.text)===norm(text))){toast('Esa tipificación ya existe.');return}
+          const rows=getSaved();rows.push({id:'custom_'+Date.now(),categoryId:c.id,text,isTemplate:text.includes('LIST-XXXX'),createdAt:new Date().toISOString()});
+          try{persist(rows)}catch(e){toast('No se pudo guardar.');return}
+          c.items.push({text,isTemplate:text.includes('LIST-XXXX')});activeCategory=c.id;searchQuery='';document.getElementById('search').value='';close();render();toast('Tipificación guardada ✓');
+        });
+        getSaved().forEach(row=>{const c=CATEGORIES.find(x=>x.id===row.categoryId);if(c&&!c.items.some(i=>norm(i.text)===norm(row.text)))c.items.push({text:row.text,isTemplate:!!row.isTemplate})});
+        render();
+      })();
+    <\/script>`;
+    html=html.replace('</head>',css+'</head>').replace('</body>',js+'</body>');
+    document.open();document.write(html);document.close();
+  }catch(e){document.body.innerHTML='<div style="padding:24px">No se pudo cargar la herramienta. Recarga la página.</div>';console.error(e)}
+})();
 </script>
 </body>
 </html>
