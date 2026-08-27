@@ -38,6 +38,7 @@
       const TABLE_URL=SUPABASE_URL+'/rest/v1/playtech_tipificaciones?select=id,category_id,text,is_template,created_at&order=created_at.asc';
       const EDITS_URL=SUPABASE_URL+'/rest/v1/playtech_tipificacion_edits?select=id,original_category_id,original_text,category_id,text,is_template,updated_at&order=updated_at.asc';
       const norm=s=>(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim();
+      normalize=function(str){return String(str??'').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[\\u200B-\\u200D\\uFEFF]/g,'').replace(/\\s+/g,' ').replace(/\\s*=\\s*/g,'=').trim()};
       CATEGORIES.forEach(category=>category.items.forEach(item=>{item._sourceKind='original';item._originalCategoryId=category.id;item._originalText=item.text;}));
       let coordinatorPassword='';let coordinatorActive=false;let editingItem=null;let editingCategory=null;
       const header=document.querySelector('header');if(!header)return;
