@@ -10,14 +10,46 @@
   <script>
     (async () => {
       try {
-        const source = await fetch('/app.html?v=stable-20260827', { cache: 'no-store' })
+        const source = await fetch('/app.html?v=stable-20260828-delete', { cache: 'no-store' })
           .then(r => { if (!r.ok) throw new Error('No se pudo cargar la aplicación'); return r.text(); });
 
-        // La aplicación ya sincroniza al abrir y después de guardar/modificar.
-        // Evitamos el polling de 30 s que re-renderizaba la lista durante el uso.
-        const stableSource = source.replace(
+        let stableSource = source.replace(
           'loadAll();setInterval(loadAll,30000);',
           'loadAll();'
+        );
+
+        // Las eliminaciones de tipificaciones originales se guardan como tombstones en Supabase.
+        stableSource = stableSource.replace(
+          'select=id,original_category_id,original_text,category_id,text,is_template,updated_at&order=updated_at.asc',
+          'select=id,original_category_id,original_text,category_id,text,is_template,deleted,updated_at&order=updated_at.asc'
+        );
+
+        stableSource = stableSource.replace(
+          'Solo el coordinador autorizado puede agregar y modificar tipificaciones para todo el equipo.',
+          'Solo el coordinador autorizado puede agregar, modificar y eliminar tipificaciones para todo el equipo.'
+        );
+
+        stableSource = stableSource.replace(
+          `.tip-edit-btn:hover{background:rgba(61,127,255,.22);border-color:rgba(61,127,255,.65)}`,
+          `.tip-edit-btn:hover{background:rgba(61,127,255,.22);border-color:rgba(61,127,255,.65)}
+      .tip-delete-btn{flex-shrink:0;border:1px solid rgba(255,76,110,.38);background:rgba(255,76,110,.12);color:#ff8aa0;border-radius:7px;padding:5px 9px;font-family:'Outfit',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:.15s}
+      .tip-delete-btn:hover{background:rgba(255,76,110,.22);border-color:rgba(255,76,110,.65)}`
+        );
+
+        stableSource = stableSource.replace(
+          `function decorateEditButtons(){if(!coordinatorActive)return;document.querySelectorAll('.tip-card').forEach(card=>{if(card.querySelector('.tip-edit-btn'))return;const item=itemFromCard(card);if(!item)return;const button=document.createElement('button');button.type='button';button.className='tip-edit-btn';button.textContent='✏ Editar';button.title='Modificar esta tipificación';button.onclick=e=>{e.preventDefault();e.stopPropagation();openEdit(item)};card.appendChild(button)})}`,
+          `function decorateEditButtons(){if(!coordinatorActive)return;document.querySelectorAll('.tip-card').forEach(card=>{const item=itemFromCard(card);if(!item)return;if(!card.querySelector('.tip-edit-btn')){const button=document.createElement('button');button.type='button';button.className='tip-edit-btn';button.textContent='✏ Editar';button.title='Modificar esta tipificación';button.onclick=e=>{e.preventDefault();e.stopPropagation();openEdit(item)};card.appendChild(button)}if(!card.querySelector('.tip-delete-btn')){const del=document.createElement('button');del.type='button';del.className='tip-delete-btn';del.textContent='🗑 Eliminar';del.title='Eliminar esta tipificación';del.onclick=e=>{e.preventDefault();e.stopPropagation();deleteItem(item)};card.appendChild(del)}})}`
+        );
+
+        stableSource = stableSource.replace(
+          `      document.getElementById('edit-cancel').onclick=()=>edit.classList.remove('show');`,
+          `      async function deleteItem(item){if(!coordinatorActive||!item)return;const category=currentCategoryForItem(item);if(!category)return;const confirmed=window.confirm('¿Eliminar esta tipificación para todo el equipo?\\n\\n'+item.text+'\\n\\nEsta acción la quitará también después de recargar.');if(!confirmed)return;const payload={action:'delete',email:COORDINATOR_EMAIL,password:coordinatorPassword,source_kind:item._sourceKind};if(item._sourceKind==='shared'){payload.source_id=item._sharedId}else if(item._sourceKind==='original'){payload.original_category_id=item._originalCategoryId;payload.original_text=item._originalText}else{return}try{await api(payload);const index=category.items.indexOf(item);if(index>=0)category.items.splice(index,1);render();toast('Tipificación eliminada para todos ✓')}catch(e){console.error('Eliminar tipificación:',e);window.alert(e.message||'No se pudo eliminar la tipificación')}}
+      document.getElementById('edit-cancel').onclick=()=>edit.classList.remove('show');`
+        );
+
+        stableSource = stableSource.replace(
+          `if(!item)continue;const target=CATEGORIES.find(category=>category.id===row.category_id);`,
+          `if(!item)continue;if(row.deleted){const current=currentCategoryForItem(item);if(current){const index=current.items.indexOf(item);if(index>=0)current.items.splice(index,1)}continue}const target=CATEGORIES.find(category=>category.id===row.category_id);`
         );
 
         document.open();
